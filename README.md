@@ -13,4 +13,6 @@ ESP32-C3 or ESP32-S3 mini (no external, power hungry, USB to serial circuit)
 SIM7020g breakout board
 39 Kohm resistor to pull PWRPIN high and keep SIM7020 in POWD state
 
+Fragments of the code is similar to/copied from TinyGSM
+
 # This is work in progress
