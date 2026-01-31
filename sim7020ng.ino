@@ -9,7 +9,8 @@ GPIOx           PWRPIN
 
 */
 
-#include "config.h"
+#include "Config.h"
+#include "secrets.h"
 #include "sim7020.h"
 #include <PubSubClient.h>
 
@@ -21,7 +22,7 @@ GPIOx           PWRPIN
 
 
 // Initiate ESP32 second UART
-HardwareSerial simSerial(2);
+HardwareSerial simSerial(SIMSERPORT);
 
 // Initiate Arduino socket client API for SIM7020g TCPIP
 sim7020Client ethClient;
@@ -32,6 +33,18 @@ RTC_NOINIT_ATTR int bootCount;
 
 long now;
 
+void restart_ESP()
+{
+    /*
+    Serial.println("Switching off modem");
+    digitalWrite(PWRPIN, 0);
+    delay(800);
+    digitalWrite(PWRPIN, 1);
+    */
+  esp_sleep_enable_timer_wakeup(RESTART_DELAY * uS_TO_S_FACTOR);
+  Serial.println("Setup ESP32 to restart in " + String(RESTART_DELAY) + " Seconds");
+  esp_deep_sleep_start();
+}
 
 // Called when MQTT messages are received
 void callback(char* topic, byte* payload, unsigned int length) {
@@ -46,16 +59,18 @@ void callback(char* topic, byte* payload, unsigned int length) {
 
 // MQTT reconnect
 void reconnect() {
+  int retry=0;
+
   if (sim7020.getRegistrationStatus() == 5) {
     // Loop until we're reconnected
-    while (!client.connected()) {
+    while (!client.connected() && retry < RECONNECT_RETRIES) {
       // sim7020.sendAT("+CIPSTATUS");
       Serial.print("Attempting MQTT connection...");
       // Attempt to connect
       if (client.connect(MQTT_CLIENT)) {
         Serial.println("connected");
         // Once connected, publish the sensor data
-        client.publish(MQTT_TOPIC, "hello world");
+        // client.publish(MQTT_TOPIC, "hello world");
         // ... and resubscribe
         client.subscribe(MQTT_CALLBACK);
       } else {
@@ -64,19 +79,17 @@ void reconnect() {
         Serial.println(" try again in 5 seconds");
         // Wait 5 seconds before retrying
         delay(5000);
+        // Don't not retry "forever"
+        retry++;
       }
+    }
+    if (retry > RECONNECT_RETRIES)
+    {
+      restart_ESP();
     }
   } else {
     Serial.println("Reconnect failed");
-    Serial.println("Switching off modem");
-    /*
-    digitalWrite(4, 0);
-    delay(800);
-    digitalWrite(4, 1);
-    */
-    delay(5000);
-    Serial.println("Restart ESP");
-    ESP.restart();
+    restart_ESP();
   }
 }
 
@@ -96,9 +109,63 @@ void print_wakeup_reason() {
   }
 }
 
+void connect_nbiot()
+{
+  int regstatus;
+
+  // Wake up modem
+  delay(1000);
+  digitalWrite(PWRPIN,0);
+  delay(800);
+  digitalWrite(PWRPIN,1);
+  delay(2500);
+  
+  // Send AT command to initiate modem autobaud
+  Serial.println("sendAT");
+  sim7020.sendAT("");
+  delay(2000);
+  Serial.println(sim7020.waitResponse());
+
+  // Switch of echo
+  sim7020.sendAT("E0");
+  if (sim7020.waitResponse("E0") != 1) {
+    Serial.println("Warning: No response when sending ATE0");
+  };
+
+  // Is the modem avake and responding
+  if (sim7020.testAT(10000)) {
+    Serial.println("testAT true");
+  } else {
+    Serial.println("testAT false");
+    restart_ESP();
+  }
+
+  // Is the SIM card responding and unlocked, add PIN code if needed
+  Serial.print("Init: ");
+  if ((regstatus = sim7020.init("")) != 1) {
+    Serial.print("SIM status: ");
+    Serial.println(regstatus);
+    restart_ESP();
+  }
+
+  // Connect to nbiot network
+  sim7020.nbiotConnect(APN, BAND);
+  while ((regstatus = sim7020.getRegistrationStatus()) != 5) {
+    Serial.print("regstatus: ");
+    Serial.println(regstatus);
+    delay(1000);
+    if (regstatus == -1) {
+      restart_ESP();
+    }
+  }
+  Serial.println("Success, associated with NB-Iot network");
+  delay(2000);
+
+}
+
 void setup() {
   String bufstr;
-  int regstatus;
+
   char msg[75];
 
   // Initiate debug serial port
@@ -131,64 +198,11 @@ void setup() {
   */
   esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP * uS_TO_S_FACTOR);
   Serial.println("Setup ESP32 to sleep for every " + String(TIME_TO_SLEEP) + " Seconds");
-
-  // Wake up modem
-  delay(1000);
-  digitalWrite(PWRPIN,0);
-  delay(800);
-  digitalWrite(PWRPIN,1);
-  delay(2500);
   
-  // Send AT command to initiate modem autobaud
-  Serial.println("sendAT");
-  sim7020.sendAT("");
-  delay(2000);
-  Serial.println(sim7020.waitResponse());
+  // Wake up modem and connect to network
+  // Function reboots ESP32 if failed connection
+  connect_nbiot();
 
-  // Switch of echo
-  sim7020.sendAT("E0");
-  if (sim7020.waitResponse("E0") != 1) {
-    Serial.println("Warning: No response when sending ATE0");
-  };
-
-  // Is the modem avake and responding
-  if (sim7020.testAT(10000)) {
-    Serial.println("testAT true");
-  } else {
-    Serial.println("testAT false");
-    Serial.println("Switching off modem");
-
-    delay(5000);
-    Serial.println("Restart ESP");
-    ESP.restart();
-  }
-
-  // Is the SIM card responding and unlocked, add PIN code if needed
-  Serial.print("Init: ");
-  if ((regstatus = sim7020.init("")) != 1) {
-    Serial.print("SIM status: ");
-    Serial.println(regstatus);
-    Serial.println("Switching off modem");
-    delay(5000);
-    Serial.println("Restart ESP");
-    ESP.restart();
-  }
-
-  // Connect to nbiot network
-  sim7020.nbiotConnect(APN, BAND);
-  while ((regstatus = sim7020.getRegistrationStatus()) != 5) {
-    Serial.print("regstatus: ");
-    Serial.println(regstatus);
-    delay(1000);
-    if (regstatus == -1) {
-      Serial.println("Switching off modem");
-      delay(5000);
-      Serial.println("Restart ESP");
-      ESP.restart();
-    }
-  }
-  Serial.println("Success, associated with NB-Iot network");
-  delay(2000);
   // Connect MQTT client
   int retcode = client.connect(MQTT_CLIENT);
   Serial.print("Connect ret: ");
@@ -208,8 +222,7 @@ void setup() {
     client.subscribe(MQTT_CALLBACK);
   } else {
     Serial.println("Not able to connect");
-    delay(10000);
-    ESP.restart();
+    restart_ESP();
   }
   // Get a timestamp
   now = millis();
