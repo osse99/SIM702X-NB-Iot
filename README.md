@@ -6,9 +6,9 @@ Do deep sleep of ESP32-C3 and CPOWD of SIM7020g to enable battery operation
 
 Aligns with Arduino architecture emulating ethernetClient so "any" client should work, MQTT, COAP, HTTP,...
 Using SSL library MQTTS and HTTPS should work to
-
-Hardware
-
+-----------------
+## Hardware
+-----------------
 ESP32-C3 or ESP32-S3 mini (no external, power hungry, USB to serial circuit)
 SIM7020g breakout board
 39 Kohm resistor to pull PWRPIN high and keep SIM7020 in POWD state
