@@ -1,10 +1,12 @@
 # SIM702X-NB-Iot
 
-###Send information from BME280 sensor and battery voltage (using AD) to a MQTT broker using [ESP32-C3](https://www.espboards.dev/esp32/esp32-c3-super-mini/) and [SIM7020g](https://www.alibaba.com/product-detail/Wgzx-Simcom-7020g-Lpwa-Nb-Iot_1601629328588.html)
-###Do deep sleep of ESP32-C3 and CPOWD of SIM7020g to enable battery operation
+###
+- Send information from BME280 sensor and battery voltage (using AD) to a MQTT broker using [ESP32-C3](https://www.espboards.dev/esp32/esp32-c3-super-mini/) and [SIM7020g](https://www.alibaba.com/product-detail/Wgzx-Simcom-7020g-Lpwa-Nb-Iot_1601629328588.html)
+- Do deep sleep of ESP32-C3 and CPOWD of SIM7020g to enable battery operation
 -----------------
-###Aligns with Arduino architecture emulating ethernetClient so "any" client should work, MQTT, COAP, HTTP,...
-###Using SSL library MQTTS and HTTPS should work to
+###
+- Aligns with Arduino architecture emulating ethernetClient so "any" client should work, MQTT, COAP, HTTP,...
+- Using SSL library MQTTS and HTTPS should work to
 -----------------
 ## Hardware
 
@@ -22,8 +24,9 @@
 -----------------
 ## Software
 
-###Set local NB-Iot and MQTT parameters in secrets.h
-###Set number of seconds between connection attempts in config.h
+###
+- Set local NB-Iot and MQTT parameters in secrets.h
+- Set number of seconds between connection attempts in config.h
 -----------------
 
 ###Fragments of the code is similar to/copied from TinyGSM
