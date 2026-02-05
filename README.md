@@ -11,7 +11,7 @@
 ## Hardware
 
 ###
-- ESP32-C3 or ESP32-S3 mini (theese boards have no external, power hungry, USB to serial circuit, power LED removed)
+- ESP32-C3 or ESP32-S3 mini (these boards have no external, power hungry, USB to serial circuit, power LED removed)
 - SIM7020g breakout board
 - 39 Kohm resistor to pull PWRPIN high and keep SIM7020 in POWD state
 - External 3.3V LDO Voltage regulator XR6206, 3 in parallell to handle up to 600 mA
