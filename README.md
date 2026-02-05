@@ -29,6 +29,6 @@
 - Set number of seconds between connection attempts in config.h
 -----------------
 
-###Fragments of the code is similar to/copied from TinyGSM
+Fragments of the code is similar to/copied from TinyGSM
 
 # This is work in progress
