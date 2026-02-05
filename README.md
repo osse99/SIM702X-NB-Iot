@@ -11,7 +11,7 @@
 ## Hardware
 
 ###
-- ESP32-C3 or ESP32-S3 mini (no external, power hungry, USB to serial circuit)
+- ESP32-C3 or ESP32-S3 mini (theese boards have no external, power hungry, USB to serial circuit, power LED removed)
 - SIM7020g breakout board
 - 39 Kohm resistor to pull PWRPIN high and keep SIM7020 in POWD state
 - External 3.3V LDO Voltage regulator XR6206, 3 in parallell to handle up to 600 mA
@@ -19,8 +19,10 @@
 - Solar cell 6V
 - CN3791 MPPT charger
 - 18650 Liion cell
-- Voltage divider 2*27Kohm resistors connected battery -> 27Kohm -> ESP32 AD pin 0 -> 27Kohm -> GND
+- Voltage divider 2*27Kohm resistors connected battery -> 27Kohm -> ESP32 AD pin -> 27Kohm -> GND
+- BME280 I2C model using Adafruit libraries
 - ESP32-C3 pin assignments in config.h
+
 -----------------
 ## Software
 
