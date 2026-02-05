@@ -1,7 +1,7 @@
 /*
  MQTT client over nbiot using SIM7020g modem
 
-Connections
+Connections NB-Iot
 ESP32           Breakout board
 Serial2 TX      RX
 Serial2 RX      TX
@@ -9,10 +9,15 @@ GPIOx           PWRPIN
 
 */
 
-#include "Config.h"
+#include "config.h"
 #include "secrets.h"
 #include "sim7020.h"
 #include <PubSubClient.h>
+
+//BME280
+#include <Wire.h>
+#include <Adafruit_Sensor.h>
+#include <Adafruit_BME280.h>
 
 #define DEBUG 1
 
@@ -20,6 +25,13 @@ GPIOx           PWRPIN
 #define uS_TO_S_FACTOR 1000000ULL /* Conversion factor for micro seconds to seconds */
 
 
+//BME280
+TwoWire I2CBME = TwoWire(0);
+Adafruit_BME280 bme;
+
+unsigned long delayTime;
+char JSONstring[MAX_MESSAGE_LENGTH];
+//BME280 end
 
 // Initiate ESP32 second UART
 HardwareSerial simSerial(SIMSERPORT);
@@ -33,14 +45,9 @@ RTC_NOINIT_ATTR int bootCount;
 
 long now;
 
-void restart_ESP()
-{
-    /*
-    Serial.println("Switching off modem");
-    digitalWrite(PWRPIN, 0);
-    delay(800);
-    digitalWrite(PWRPIN, 1);
-    */
+// Called when things go wrong, best would be if modem and sensors had their power supply switched by a FET
+// Now battery might drain if modem does not shut down properly
+void restart_ESP() {
   esp_sleep_enable_timer_wakeup(RESTART_DELAY * uS_TO_S_FACTOR);
   Serial.println("Setup ESP32 to restart in " + String(RESTART_DELAY) + " Seconds");
   esp_deep_sleep_start();
@@ -59,7 +66,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
 
 // MQTT reconnect
 void reconnect() {
-  int retry=0;
+  int retry = 0;
 
   if (sim7020.getRegistrationStatus() == 5) {
     // Loop until we're reconnected
@@ -69,9 +76,6 @@ void reconnect() {
       // Attempt to connect
       if (client.connect(MQTT_CLIENT)) {
         Serial.println("connected");
-        // Once connected, publish the sensor data
-        // client.publish(MQTT_TOPIC, "hello world");
-        // ... and resubscribe
         client.subscribe(MQTT_CALLBACK);
       } else {
         Serial.print("failed, rc=");
@@ -83,17 +87,17 @@ void reconnect() {
         retry++;
       }
     }
-    if (retry > RECONNECT_RETRIES)
-    {
+    if (retry > RECONNECT_RETRIES) {
+      Serial.println("Reconnect failed, not able to reach MQTT brooker");
       restart_ESP();
     }
   } else {
-    Serial.println("Reconnect failed");
+    Serial.println("Reconnect failed, not registered to NB-IoT network");
     restart_ESP();
   }
 }
 
-// Sleep stuff
+// Wake up from sleep stuff
 void print_wakeup_reason() {
   esp_sleep_wakeup_cause_t wakeup_reason;
 
@@ -109,17 +113,18 @@ void print_wakeup_reason() {
   }
 }
 
-void connect_nbiot()
-{
+// SIM7020 start and register to NB-Iot network
+void connect_nbiot() {
+  // Maybe this should be moved to sim7020.cpp...
   int regstatus;
 
   // Wake up modem
   delay(1000);
-  digitalWrite(PWRPIN,0);
+  digitalWrite(PWRPIN, 0);
   delay(800);
-  digitalWrite(PWRPIN,1);
+  digitalWrite(PWRPIN, 1);
   delay(2500);
-  
+
   // Send AT command to initiate modem autobaud
   Serial.println("sendAT");
   sim7020.sendAT("");
@@ -149,6 +154,7 @@ void connect_nbiot()
   }
 
   // Connect to nbiot network
+  // This will go on forever, maybe there should be a timeout or max number of retries to save battery if the network malfunctions
   sim7020.nbiotConnect(APN, BAND);
   while ((regstatus = sim7020.getRegistrationStatus()) != 5) {
     Serial.print("regstatus: ");
@@ -160,13 +166,27 @@ void connect_nbiot()
   }
   Serial.println("Success, associated with NB-Iot network");
   delay(2000);
-
 }
 
-void setup() {
-  String bufstr;
+// Read sensors and assemble a JSON formatted string
+void JSONValues(char* Jstring) {
+  // char JSONstring[255];
+  int battValue;
+  float battVoltage;
 
-  char msg[75];
+  battValue = analogRead(BATTPIN);
+  battVoltage = battValue * ANALOG_RATIO * 3 / 4095;
+
+  sprintf(Jstring, "{ \"T\" : %f, \"P\" : %f, \"H\" : %f, \"B\" : %f }", bme.readTemperature(), bme.readPressure(), bme.readHumidity(), battVoltage);
+
+  // Serial.print("JSON = ");
+  // Serial.println(Jtring);
+}
+
+
+
+void setup() {
+  // char msg[MAX_MESSAGE_LENGTH];
 
   // Initiate debug serial port
   Serial.begin(115200);
@@ -175,30 +195,39 @@ void setup() {
 
   // Set up PWRKEY pin
   pinMode(PWRPIN, OUTPUT);
-  digitalWrite(PWRPIN,1);
-  
+  digitalWrite(PWRPIN, 1);
+
+  //BME280
+  bool status;
+  I2CBME.begin(I2C_SDA, I2C_SCL, 100000);
+
+  status = bme.begin(0x76, &I2CBME);
+  if (!status) {
+    Serial.println("Could not find a valid BME280 sensor, check wiring!");
+    strcpy(JSONstring, "{ \"M\" : \"BME280 sensor not found\"}");
+  } else {
+    JSONValues(JSONstring);
+  }
+  //BME280 end
+
   // Set up MQTT client params
   client.setCallback(callback);
 
-  //Increment boot number and prin
-  if (bootCount < 1)
-  {
-    bootCount=0;
+  //Increment boot number and print
+  if (bootCount < 1) {
+    bootCount = 0;
   }
   bootCount++;
-  
+
   Serial.println("Boot number: " + String(bootCount));
-  
+
   //Print the wakeup reason for ESP32
   print_wakeup_reason();
 
-  /*
-  First we configure the wake up source
-  We set our ESP32 to wake up every 5 seconds
-  */
+  // Set wakeup source
   esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP * uS_TO_S_FACTOR);
   Serial.println("Setup ESP32 to sleep for every " + String(TIME_TO_SLEEP) + " Seconds");
-  
+
   // Wake up modem and connect to network
   // Function reboots ESP32 if failed connection
   connect_nbiot();
@@ -210,15 +239,12 @@ void setup() {
   if (retcode > 0) {
     Serial.println("connected");
     // Once connected, publish the sensor data
-    snprintf(msg, sizeof(msg), "NB-Iot: %d", bootCount);
-    if( DEBUG)
-    { 
+    // snprintf(msg, sizeof(msg), "NB-Iot: %d", bootCount);
+    if (DEBUG) {
       Serial.print("Sending message: ");
-      Serial.println(msg);
+      Serial.println(JSONstring);
     }
-    client.publish(MQTT_TOPIC, msg);
-    // client.publish(MQTT_TOPIC, "Just a message");
-    // ... and resubscribe
+    client.publish(MQTT_TOPIC, JSONstring);
     client.subscribe(MQTT_CALLBACK);
   } else {
     Serial.println("Not able to connect");
@@ -239,7 +265,7 @@ void loop() {
   client.loop();
 
   // Wait for incoming messages before going to sleep
-  if (millis() > now + AWAKETIME*1000) {
+  if (millis() > now + AWAKETIME * 1000) {
     Serial.println("Going to sleep now");
     Serial.flush();
 

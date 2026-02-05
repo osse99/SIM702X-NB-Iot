@@ -74,7 +74,7 @@ int sim7020Client::connect(const char *host, uint16_t port) {
 int sim7020Client::connect(IPAddress ip, uint16_t port) {
   if (DEBUG)
     Serial.println("sim7020Client Connect IP");
-  
+
   // Close any exiting TCP connections
   stop();
 
@@ -133,8 +133,7 @@ size_t sim7020Client::write(const uint8_t *buf, size_t size) {
   }
   uint8_t length;
   for (length = 0; length < size; length++) {
-    if (DEBUG2)
-    {
+    if (DEBUG2) {
       Serial.println(*buf, HEX);
     }
     simSerial.write(*buf);
@@ -224,9 +223,6 @@ int sim7020Client::read(uint8_t *buf, size_t size) {
     char c = simSerial.read();
     buf[0] = c;
   }
-  // DBG("### READ:", len_requested, "from", mux);
-  // sockets[mux]->sock_available = modemGetAvailable(mux);
-  //  sockets[mux]->sock_available = len_confirmed;
   sim7020.waitResponse();
   return len_requested;
 }

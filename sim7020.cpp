@@ -201,7 +201,7 @@ int8_t sim7020Class::waitResponse(uint8_t timeout, String& data, const char* r1 
   } while (millis() - startMillis < timeout_ms);
   if (DEBUG2) {
     Serial.print("Millis - StartMillis and timeout");
-    Serial.println(millis() - startMillis); 
+    Serial.println(millis() - startMillis);
     Serial.println(timeout_ms);
   }
 finish:
