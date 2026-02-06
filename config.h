@@ -33,6 +33,7 @@
 // If error
 #define RESTART_DELAY 60
 #define RECONNECT_RETRIES 5
+#define MAX_REGISTRATION_RETRIES 10
 
 /* set GSM PIN */
 #define GSM_PIN             ""

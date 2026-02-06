@@ -48,6 +48,10 @@ long now;
 // Called when things go wrong, best would be if modem and sensors had their power supply switched by a FET
 // Now battery might drain if modem does not shut down properly
 void restart_ESP() {
+  // Trying to power of modem, don't know if its awake
+  sim7020.sendAT("+CPOWD=1");
+  Serial.println(sim7020.waitResponse("NORMAL POWER DOWN"));
+  // Go to sleep
   esp_sleep_enable_timer_wakeup(RESTART_DELAY * uS_TO_S_FACTOR);
   Serial.println("Setup ESP32 to restart in " + String(RESTART_DELAY) + " Seconds");
   esp_deep_sleep_start();
@@ -117,6 +121,7 @@ void print_wakeup_reason() {
 void connect_nbiot() {
   // Maybe this should be moved to sim7020.cpp...
   int regstatus;
+  int retry = 0;
 
   // Wake up modem
   delay(1000);
@@ -154,13 +159,14 @@ void connect_nbiot() {
   }
 
   // Connect to nbiot network
-  // This will go on forever, maybe there should be a timeout or max number of retries to save battery if the network malfunctions
   sim7020.nbiotConnect(APN, BAND);
   while ((regstatus = sim7020.getRegistrationStatus()) != 5) {
+    retry++;
     Serial.print("regstatus: ");
     Serial.println(regstatus);
     delay(1000);
-    if (regstatus == -1) {
+    // Don't retry forever, save battery!
+    if (regstatus == -1 || retry > MAX_REGISTRATION_RETRIES) {
       restart_ESP();
     }
   }
