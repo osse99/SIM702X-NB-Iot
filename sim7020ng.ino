@@ -181,10 +181,12 @@ void JSONValues(char* Jstring) {
   float battVoltage;
 
   battValue = analogRead(BATTPIN);
-  battVoltage = battValue * ANALOG_RATIO * 3 / 4095;
+  // battVoltage = battValue * ANALOG_RATIO * 3 / 4095;
+  battVoltage = (float )(battValue * ANALOG_RATIO * 3) / 4095;
 
-  sprintf(Jstring, "{ \"T\" : %f, \"P\" : %f, \"H\" : %f, \"B\" : %f }", bme.readTemperature(), bme.readPressure(), bme.readHumidity(), battVoltage);
-
+  // sprintf(Jstring, "{ \"T\" : %f, \"P\" : %f, \"H\" : %f, \"B\" : %f }", bme.readTemperature(), bme.readPressure(), bme.readHumidity(), battVoltage);
+  sprintf(Jstring, "{\"T\":%.2f,\"P\":%.2f,\"H\":%.2f,\"B\":%.2f}", bme.readTemperature(), bme.readPressure(), bme.readHumidity(), battVoltage);
+ 
   // Serial.print("JSON = ");
   // Serial.println(Jtring);
 }
